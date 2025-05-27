@@ -1,2 +1,97 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+// pages/index.tsx
+
+'use client';
+
+import { useState, useRef } from 'react';
+import SignatureCanvas from 'react-signature-canvas';
+import { Button } from '@/components/ui/button';
+
+export default function Home() {
+  const [form, setForm] = useState({ name: '', email: '', rent: '', idPhoto: null });
+  const [loading, setLoading] = useState(false);
+  const sigRef = useRef<SignatureCanvas>(null);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.name === 'idPhoto' && e.target.files) {
+      setForm({ ...form, idPhoto: e.target.files[0] });
+    } else {
+      setForm({ ...form, [e.target.name]: e.target.value });
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!sigRef.current || sigRef.current.isEmpty()) {
+      alert('請先簽名！');
+      return;
+    }
+    if (!form.idPhoto) {
+      alert('請上傳身份證照片！');
+      return;
+    }
+    setLoading(true);
+
+    const signature = sigRef.current.getTrimmedCanvas().toDataURL('image/png');
+    const formData = new FormData();
+    formData.append('name', form.name);
+    formData.append('email', form.email);
+    formData.append('rent', form.rent);
+    formData.append('signature', signature);
+    formData.append('idPhoto', form.idPhoto);
+
+    const res = await fetch('/api/submit-contract', {
+      method: 'POST',
+      body: formData,
+    });
+    const result = await res.json();
+    setLoading(false);
+    alert(result.message);
+  };
+
+  return (
+    <div className="p-6 max-w-xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">線上簽署租賃契約</h1>
+      <input
+        className="w-full mb-2 border rounded p-2"
+        name="name"
+        placeholder="姓名"
+        value={form.name}
+        onChange={handleChange}
+      />
+      <input
+        className="w-full mb-2 border rounded p-2"
+        name="email"
+        placeholder="Email"
+        value={form.email}
+        onChange={handleChange}
+      />
+      <input
+        className="w-full mb-2 border rounded p-2"
+        name="rent"
+        placeholder="月租金（NT$）"
+        value={form.rent}
+        onChange={handleChange}
+      />
+      <div className="mb-2">
+        <label className="block mb-1 font-medium">上傳身份證照片：</label>
+        <input
+          type="file"
+          accept="image/*"
+          name="idPhoto"
+          onChange={handleChange}
+          className="w-full border rounded p-2"
+        />
+      </div>
+      <p className="mb-2">請於下方簽名：</p>
+      <div className="border mb-4">
+        <SignatureCanvas
+          penColor="black"
+          canvasProps={{ width: 500, height: 200, className: 'bg-white' }}
+          ref={sigRef}
+        />
+      </div>
+      <Button onClick={handleSubmit} disabled={loading}>
+        {loading ? '處理中…' : '送出簽名並寄送合約'}
+      </Button>
+    </div>
+  );
+}
